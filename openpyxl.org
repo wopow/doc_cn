@@ -1,0 +1,208 @@
+* 在内存中操作工作簿
+** 创建工作簿
+无需在文件系统上创建文件就可以开始使用 openpyxl。只需导入工作簿类并开始使用它.
+#+BEGIN_SRC Python
+from openpyxl import Workbook
+wb = Workbook()
+#+END_SRC
+始终使用至少一个工作表创建工作簿。您可以使用 openpyxl.workbook.Workbook.active () 属性来获取它
+#+BEGIN_SRC Python
+ws = wb.active
+#+END_SRC
+!Note
+此函数使用the还可以使用 openpyxl.workbook.Workbook.create_sheet() 方法创建新工作表_active_sheet_index 属性, 默认情况下设置为0。除非您修改其值, 否则将始终使用此方法获得第一个工作表。
+!
+还可以使用 openpyxl.workbook.Workbook.create_sheet() 方法创建新工作表
+#+BEGIN_SRC Python
+ws1 = wb.create_sheet("Mysheet")  #在末尾插入 (默认值)
+#或者
+ws2 = wb.create_sheet("Mysheet", 0)#在第一个位置插入
+#+END_SRC
+在创建表单时, 会自动给出一个名称。它们按顺序编号 (Sheet、Sheet1、Sheet2、...)。您可以随时使用 title 属性更改此名称:
+#+BEGIN_SRC Python
+ws.title = "New Title"
+#+END_SRC
+默认情况下, 持有此标题的选项卡的背景色为白色。您可以更改此操作, 为 sheet_properties tabColor 属性提供 RRGGBB 的颜色代码:
+#+BEGIN_SRC Python
+ws.sheet_properties.tabColor = "1072BA"
+#+END_SRC
+一旦为工作表提供了名称，就可以将其作为工作簿的一个键：
+#+BEGIN_SRC Python
+ws3 = wb["New Title"]
+#+END_SRC
+您可以使用openpyxl.workbook.Workbook.sheetnames（）属性查看工作簿的所有工作表的名称
+#+BEGIN_SRC Python
+print(wb.sheetnames)
+#+END_SRC
+您可以遍历工作表
+#+BEGIN_SRC Python
+for sheet in wb:
+print(sheet.title)
+#+END_SRC
+您可以在单个工作簿中创建工作表的副本：
+openpyxl.workbook.Workbook.copy_worksheet（）方法：
+#+BEGIN_SRC Python
+source = wb.active
+target = wb.copy_worksheet(source)
+#+END_SRC
+!Note
+仅复制单元格（包括值，样式，超链接和注释）和某些工作表属性（包括维度，格式和属性）。不复制所有其他工作簿/工作表属性 - 例如图片，图表。
+!
+!Note
+您无法在工作簿之间复制工作表。如果工作簿以只读或只写模式打开，则也无法复制工作表。
+!
+* 玩数据
+** 访问一个单元格
+现在我们知道如何访问工作表，我们可以开始修改单元格内容。
+
+可以直接访问单元格作为工作表的键
+#+BEGIN_SRC Python
+c = ws['A4']
+#+END_SRC
+这将返回A4处的单元格，如果尚不存在，则创建一个单元格。可以直接指定值
+#+BEGIN_SRC Python
+ws['A4'] = 4
+#+END_SRC
+还有openpyxl.worksheet.Worksheet.cell（）方法。
+
+这使用行和列表示法提供对单元格的访问：
+#+BEGIN_SRC Python
+d = ws.cell(row=4, column=2, value=10)
+#+END_SRC
+!Note
+在内存中创建工作表时，它不包含单元格。首次访问时会创建它们。
+!
+
+!Warning
+由于此功能，滚动单元格而不是直接访问它们将在内存中创建它们，即使您没有为它们分配值。
+
+就像是
+#+BEGIN_SRC Python
+for i in range(1,101):
+for j in range(1,101):
+ws.cell(row=i, column=j)
+#+END_SRC
+将在内存中创建100x100个单元格，无需任何操作。
+!
+** 访问许多单元格
+
+可以使用切片访问单元格范围
+#+BEGIN_SRC Python
+cell_range = ws['A1':'C2']
+#+END_SRC
+行或列的范围可以类似地获得：
+#+BEGIN_SRC Python
+colC = ws['C']
+col_range = ws['C:D']
+row10 = ws[10]
+row_range = ws[5:10]
+#+END_SRC
+您还可以使用openpyxl.worksheet.Worksheet.iter_rows（）方法：
+#+BEGIN_SRC Python
+for row in ws.iter_rows(min_row=1, max_col=3, max_row=2):
+for cell in row:
+print(cell)
+#+END_SRC
+如果需要遍历文件的所有行或列，则可以使用openpyxl.worksheet.Worksheet.rows（）属性：
+#+BEGIN_SRC Python
+ws = wb.active
+ws['C9'] = 'hello world'
+tuple(ws.rows)
+#+END_SRC
+或者openpyxl.worksheet.Worksheet.columns（）属性：
+#+BEGIN_SRC Python
+tuple(ws.columns)
+#+END_SRC
+** 数据存储
+一旦我们有了openpyxl.cell.Cell，我们就可以为它赋值：
+#+BEGIN_SRC Python
+c.value = 'hello, world'
+print(c.value)
+
+d.value = 3.14
+print(d.value)
+#+END_SRC
+You can also enable type and format inference:
+#+BEGIN_SRC Python
+wb = Workbook(guess_types=True)
+c.value = '12%'
+print(c.value)
+
+import datetime
+d.value = datetime.datetime.now()
+print d.value
+
+c.value = '31.50'
+print(c.value)
+#+END_SRC
+** 保存到文件
+保存工作簿的最简单和最安全的方法是使用openpyxl.workbook.Workbook对象的openpyxl.workbook.Workbook.save（）方法：
+#+BEGIN_SRC Python
+wb = Workbook()
+wb.save('balances.xlsx')
+#+END_SRC
+!Warning
+此操作将覆盖现有文件而不发出警告。
+!
+
+!Note
+扩展名不是强制为xlsx或xlsm，但如果您不使用官方扩展名，则可能无法直接使用其他应用程序打开它。
+
+由于OOXML文件基本上是ZIP文件，您还可以使用.zip结束文件名，并使用您喜欢的ZIP存档管理器打开它。
+!
+** 保存为流
+如果要将文件保存到流中，例如使用Pyramid，Flask或Django等Web应用程序时，您只需提供NamedTemporaryFile：
+#+BEGIN_SRC Python
+from tempfile import NamedTemporaryFile
+from openpyxl import Workbook
+wb = Workbook()
+with NamedTemporaryFile() as tmp:
+wb.save(tmp.name)
+tmp.seek(0)
+stream = tmp.read()
+#+END_SRC
+您可以指定属性template = True，以将工作簿另存为模板：
+#+BEGIN_SRC Python
+wb = load_workbook('document.xlsx')
+wb.template = True
+wb.save('document_template.xltx')
+#+END_SRC
+or set this attribute to False (default), to save as a document:
+#+BEGIN_SRC Python
+wb = load_workbook('document_template.xltx')
+wb.template = False
+wb.save('document.xlsx', as_template=False)
+#+END_SRC
+!Warning
+您应该监视数据属性和文档扩展名以便在文档模板中保存文档，反之亦然，否则结果表引擎无法打开文档。
+!
+
+!Note
+以下将失败：
+#+BEGIN_SRC Python
+wb = load_workbook('document.xlsx')
+# Need to save with the extension *.xlsx
+wb.save('new_document.xlsm')
+# MS Excel can't open the document
+
+# or
+
+# Need specify attribute keep_vba=True
+wb = load_workbook('document.xlsm')
+wb.save('new_document.xlsm')
+# MS Excel will not open the document
+
+# or
+
+wb = load_workbook('document.xltm', keep_vba=True)
+# If we need a template document, then we must specify extension as *.xltm.
+wb.save('new_document.xlsm')
+# MS Excel will not open the document
+#+END_SRC
+** 从文件加载
+与编写相同，您可以导入openpyxl.load_workbook（）以打开现有工作簿：
+#+BEGIN_SRC Python
+from openpyxl import load_workbook
+wb2 = load_workbook('test.xlsx')
+print wb2.sheetnames
+#+END_SRC
