@@ -312,7 +312,7 @@ ws.unmerge_cells(start_row=2, start_column=1, end_row=4, end_column=4)
 #+BEGIN_SRC Python
 from openpyxl import Workbook
 from openpyxl.drawing.image import Image
->>>
+
 wb = Workbook()
 ws = wb.active
 ws['A1'] = 'You should see three logos below'
@@ -336,4 +336,83 @@ ws = wb.create_sheet()
 ws.column_dimensions.group('A','D', hidden=True)
 ws.row_dimensions.group(1,10, hidden=True)
 wb.save('group.xlsx')
+#+END_SRC
+* 性能
+openpyxl尝试平衡功能和性能。毫无疑问，我们专注于优化功能：一旦API建立，性能调整就更容易。与其他库和应用程序相比，内存使用率相当高，大约是原始文件大小的50倍，例如： 2.5 GB的内存打开50 MB Excel文件。由于许多用例只涉及读取或写入文件，因此只读模式模式意味着这不是一个问题。
+* 基准
+所有基准都是合成的，并且极其依赖于硬件，但它们仍然可以给出指示。可以调整基准以使用更多工作表并调整字符串数据的比例。由于使用的Python版本也会显着影响性能，因此驱动程序脚本也可用于使用tox环境测试不同的Python版本。
+* 只读模式
+
+有时，您需要打开或写入非常大的XLSX文件，而openpyxl中的常见例程将无法处理该负载。幸运的是，有两种模式可以让您在（接近）恒定内存消耗的情况下读取和写入无限量的数据。
+
+介绍openpyxl.worksheet.read_only.ReadOnlyWorksheet：
+#+BEGIN_SRC Python
+from openpyxl import load_workbook
+wb = load_workbook(filename='large_file.xlsx', read_only=True)
+ws = wb['big_data']
+
+for row in ws.rows:
+    for cell in row:
+        print(cell.value)
+#+END_SRC
+!Warning
+openpyxl.worksheet.read_only.ReadOnlyWorksheet是只读的
+!
+** 工作表尺寸
+
+只读模式依赖于创建该文件的应用程序和库，提供有关工作表的正确信息，特别是其中使用的部分，称为维度。某些应用程序设置错误。您可以使用ws.calculate_dimension（）检查工作表的外观尺寸。如果这返回一个你知道不正确的范围，比如说A1：A1那么只需重置max_row和max_column属性就可以让你使用这个文件了：
+#+BEGIN_SRC Python
+ws.max_row = ws.max_column = None
+#+END_SRC
+* 只写模式
+同样，常规的openpyxl.worksheet.worksheet.Worksheet已被更快的替代品openpyxl.writer.write_only.WriteOnlyWorksheet取代。如果要转储大量数据，请确保已安装lxml。
+#+BEGIN_SRC Python
+from openpyxl import Workbook
+wb = Workbook(write_only=True)
+ws = wb.create_sheet()
+
+# 现在我们将用100行×200列填充它
+
+for irow in range(100):
+    ws.append(['%d' % i for i in range(200)])
+# 保存文件
+wb.save('new_big_file.xlsx') 
+#+END_SRC
+如果您想要包含样式或注释的单元格，请使用openpyxl.worksheet.write_only.WriteOnlyCell（）
+#+BEGIN_SRC Python
+from openpyxl import Workbook
+wb = Workbook(write_only = True)
+ws = wb.create_sheet()
+from openpyxl.worksheet.write_only import WriteOnlyCell
+from openpyxl.comments import Comment
+from openpyxl.styles import Font
+cell = WriteOnlyCell(ws, value="hello world")
+cell.font = Font(name='Courier', size=36)
+cell.comment = Comment(text="A comment", author="Author's Name")
+ws.append([cell, 3.14, None])
+wb.save('write_only_file.xlsx')
+#+END_SRC
+这将创建一个包含单个工作表的只写工作簿，并附加一行3个单元格：一个带有自定义字体和注释的文本单元格，一个浮点数和一个空单元格（无论如何都将丢弃）。
+!Warning
+与普通工作簿不同，新创建的只写工作簿不包含任何工作表;必须使用create_sheet（）方法专门创建工作表。
+在只写工作簿中，只能使用append（）添加行。使用cell（）或iter_rows（）在任意位置写入（或读取）单元格是不可能的。
+它能够导出无限量的数据（甚至超过Excel可以实际处理的数据），同时将内存使用量保持在10Mb以下。
+只写工作簿只能保存一次。之后，每次保存工作簿或append（）到现有工作表的尝试都会引发openpyxl.utils.exceptions.WorkbookAlreadySaved异常。
+必须在添加单元格之前创建在实际单元格数据之前出现在文件中的所有内容，因为在此之前必须将其写入文件。例如，应在添加单元格之前设置freeze_panes。
+!
+* 插入和删除行和列，移动单元格的范围
+您可以使用相关的工作表方法插入行或列：
+
+        openpyxl.worksheet.worksheet.Worksheet.insert_rows（）
+        openpyxl.worksheet.worksheet.Worksheet.insert_cols（）
+        openpyxl.worksheet.worksheet.Worksheet.delete_rows（）
+        openpyxl.worksheet.worksheet.Worksheet.delete_cols（）
+
+默认值为一行或一列。例如，在7处（在现有的第7行之前）插入一行：
+#+BEGIN_SRC Python
+ws.insert_rows(7)
+#+END_SRC
+要删除列F：H：
+#+BEGIN_SRC Python
+ws.delete_cols(6, 3)
 #+END_SRC
