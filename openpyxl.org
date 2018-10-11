@@ -206,3 +206,134 @@ from openpyxl import load_workbook
 wb2 = load_workbook('test.xlsx')
 print wb2.sheetnames
 #+END_SRC
+* 简单的用法
+** 写一本工作簿
+#+BEGIN_SRC Python
+from openpyxl import Workbook
+from openpyxl.compat import range
+from openpyxl.utils import get_column_letter
+
+wb = Workbook()
+
+dest_filename = 'empty_book.xlsx'
+
+ws1 = wb.active
+ws1.title = "range names"
+
+for row in range(1, 40):
+     ws1.append(range(600))
+
+ws2 = wb.create_sheet(title="Pi")
+
+ws2['F5'] = 3.14
+
+ws3 = wb.create_sheet(title="Data")
+for row in range(10, 20):
+    for col in range(27, 54):
+        _ = ws3.cell(column=col, row=row, value="{0}".format(get_column_letter(col)))
+print(ws3['AA10'].value)
+wb.save(filename = dest_filename)
+#+END_SRC
+** 阅读现有的工作簿
+#+BEGIN_SRC Python
+from openpyxl import load_workbook
+wb = load_workbook(filename = 'empty_book.xlsx')
+sheet_ranges = wb['range names']
+print(sheet_ranges['D18'].value)
+#+END_SRC
+!Note
+有几个标志可以在load_workbook中使用。
+
+ - guess_types将在读取单元格时启用或禁用（默认）类型推断。
+ - data_only控制具有公式的单元格是具有公式（默认）还是上次Excel读取工作表时存储的值。
+ - keep_vba控制是否保留任何Visual Basic元素（默认）。如果保留它们，它们仍然是不可编辑的。
+!
+
+!Warning
+openpyxl当前没有读取Excel文件中的所有可能项目，因此如果打开并使用相同名称保存图像和图表，它们将从现有文件中丢失。
+!
+** 使用数字格式
+#+BEGIN_SRC Python
+import datetime
+from openpyxl import Workbook
+wb = Workbook()
+ws = wb.active
+# 使用Python日期时间设置日期
+ws['A1'] = datetime.datetime(2010, 7, 21)
+
+ws['A1'].number_format
+['yyyy-mm-dd h:mm:ss']
+# 您可以根据具体情况启用类型推断
+wb.guess_types = True
+# 使用字符串后跟百分号设置百分比
+ws['B1'] = '3.14%'
+wb.guess_types = False
+ws['B1'].value
+[0.031400000000000004]
+
+ws['B1'].number_format
+['0%']
+#+END_SRC
+** 使用公式
+#+BEGIN_SRC Python
+from openpyxl import Workbook
+wb = Workbook()
+ws = wb.active
+# 添加一个简单的公式
+ws["A1"] = "=SUM(1, 1)"
+wb.save("formula.xlsx")
+#+END_SRC
+!Warning
+注意，您必须使用英文名称作为函数，函数参数必须用逗号分隔，而不是其他标点符号，如分号。
+!
+openpyxl从不评估公式，但可以检查公式的名称：
+#+BEGIN_SRC Python
+from openpyxl.utils import FORMULAE
+"HEX2DEC" in FORMULAE
+[True]
+#+END_SRC
+如果您尝试使用未知的公式，可能是因为您使用的公式未包含在初始规范中。这些公式必须以_xlfn.为前缀才能工作。
+** 合并/取消合并单元格
+合并单元格时，将从工作表中删除所有单元格，但左上角单元格。有关格式化合并单元格的信息，请参阅样式化合并单元格。
+#+BEGIN_SRC Python
+from openpyxl.workbook import Workbook
+
+wb = Workbook()
+ws = wb.active
+
+ws.merge_cells('A2:D2')
+ws.unmerge_cells('A2:D2')
+
+# 或者等价的
+ws.merge_cells(start_row=2, start_column=1, end_row=4, end_column=4)
+ws.unmerge_cells(start_row=2, start_column=1, end_row=4, end_column=4)
+#+END_SRC
+** 插入图像
+#+BEGIN_SRC Python
+from openpyxl import Workbook
+from openpyxl.drawing.image import Image
+>>>
+wb = Workbook()
+ws = wb.active
+ws['A1'] = 'You should see three logos below'
+#+END_SRC
+
+#+BEGIN_SRC Python
+# 创建一个图像
+img = Image('logo.png')
+#+END_SRC
+
+#+BEGIN_SRC Python
+#添加到工作表锚点旁边的单元格
+ws.add_image(img, 'A1')
+wb.save('logo.xlsx')
+#+END_SRC
+** 折叠（大纲）
+#+BEGIN_SRC Python
+import openpyxl
+wb = openpyxl.Workbook()
+ws = wb.create_sheet()
+ws.column_dimensions.group('A','D', hidden=True)
+ws.row_dimensions.group(1,10, hidden=True)
+wb.save('group.xlsx')
+#+END_SRC
